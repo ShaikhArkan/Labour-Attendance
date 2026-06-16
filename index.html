@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Labour Attendance Pro</title>
+    <!-- External library for high-fidelity client-side PDF downloads -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #eef2f7;
+            --clay-bg: #eef2f7;
+            --clay-shadow-out: 9px 9px 16px #d1d9e6, -9px -9px 16px #ffffff;
+            --clay-shadow-in: inset 3px 3px 7px rgba(255,255,255,0.7), inset -3px -3px 7px rgba(163,177,198,0.3);
+            --clay-shadow-btn-out: 5px 5px 10px #d1d9e6, -5px -5px 10px #ffffff;
+            
+            --color-present: #2ecc71;
+            --color-absent: #e74c3c;
+            --color-half: #2c3e50;
+            --color-text: #4a5568;
+            --color-primary: #6c5ce7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--color-text);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Claymorphism UI Engine styling */
+        .clay-card {
+            background: var(--clay-bg);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: var(--clay-shadow-out);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            position: relative;
+        }
+
+        .clay-input {
+            width: 100%;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 15px;
+            background: var(--clay-bg);
+            box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff;
+            outline: none;
+            font-size: 16px;
+        }
+
+        .clay-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 15px;
+            background: var(--clay-bg);
+            box-shadow: var(--clay-shadow-btn-out);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .clay-btn:active {
+            box-shadow: inset 3px 3px 6px #d1d9e6, inset -3px -3px 6px #ffffff;
+        }
+
+        .clay-btn.primary {
+            color: white;
+            background: var(--color-primary);
+            box-shadow: 5px 5px 10px rgba(108, 92, 231, 0.3), -5px -5px 10px #ffffff;
+        }
+        .clay-btn.primary:active {
+            box-shadow: inset 3px 3px 6px rgba(0,0,0,0.2);
+        }
+
+        .clay-btn.success {
+            color: white;
+            background: #27ae60;
+            box-shadow: 5px 5px 10px rgba(39,174,96,0.3), -5px -5px 10px #ffffff;
+        }
+
+        .clay-btn.danger { color: #e74c3c; }
+
+        /* Navigation Tab Links */
+        .nav-tabs {
+            display: flex;
+            gap: 15px;
+        }
+        .nav-tabs .clay-btn { flex: 1; }
+        .nav-tabs .clay-btn.active {
+            box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff;
+            color: var(--color-primary);
+        }
+
+        /* Typography */
+        h1 { font-size: 24px; text-align: center; margin-bottom: 2px; font-weight: 700;}
+        h2 { font-size: 18px; margin-bottom: 15px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;}
+        .subtitle { text-align: center; font-size: 13px; opacity: 0.7; margin-bottom: 5px; }
+
+        .form-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        /* Interactive Daily Work Grid System */
+        .labour-list { display: flex; flex-direction: column; gap: 20px; }
+        .labour-card { display: flex; flex-direction: column; gap: 12px; }
+        .labour-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 17px; }
+
+        .week-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+
+        .day-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .day-label { font-size: 11px; font-weight: 600; opacity: 0.6; }
+
+        .status-btn {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            border: none;
+            background: var(--clay-bg);
+            box-shadow: var(--clay-shadow-btn-out);
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .status-btn[data-status="."] { color: #a0aec0; }
+        .status-btn[data-status="1"] { color: var(--color-present); box-shadow: inset 2px 2px 5px rgba(46, 204, 113, 0.2), var(--clay-shadow-btn-out); font-size: 16px;}
+        .status-btn[data-status="0"] { color: var(--color-absent); box-shadow: inset 2px 2px 5px rgba(231, 76, 60, 0.2), var(--clay-shadow-btn-out); font-size: 16px;}
+        .status-btn[data-status="-"] { color: var(--color-half); box-shadow: inset 2px 2px 5px rgba(44, 62, 80, 0.2), var(--clay-shadow-btn-out); font-size: 16px;}
+
+        .card-footer-metrics {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-top: 5px;
+            padding-top: 10px;
+            border-top: 1px dashed rgba(0,0,0,0.05);
+        }
+
+        .advance-box { display: flex; align-items: center; gap: 6px; max-width: 160px; }
+        .advance-box span { font-size: 13px; font-weight: 600; opacity: 0.8; }
+        .advance-box .clay-input { padding: 6px 10px; font-size: 14px; text-align: left; }
+
+        /* History Logs Table Section */
+        .history-item { margin-bottom: 25px; padding-bottom: 10px; }
+        .history-header {
+            font-weight: 600;
+            font-size: 14px;
+            background: rgba(0,0,0,0.03);
+            padding: 10px 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 10px; }
+        .history-table th, .history-table td { padding: 8px 4px; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.04); }
+        .history-table td.status-1 { color: var(--color-present); font-weight: bold; }
+        .history-table td.status-0 { color: var(--color-absent); font-weight: bold; }
+        .history-table td.status-half { color: var(--color-half); font-weight: bold; }
+
+        /* App Custom Popup Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(238, 242, 247, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+        .modal-content {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            from { transform: scale(0.85); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-buttons { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
+
+        .hidden { display: none !important; }
+        .empty-state { text-align: center; padding: 30px; opacity: 0.5; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Title Workspace Block Header -->
+        <div>
+            <h1>Labour Attendance Pro</h1>
+            <div class="subtitle" id="current-week-banner">Active Tracking Sheet</div>
+        </div>
+
+        <!-- Authorized User Panel Widget -->
+        <div class="clay-card">
+            <span style="font-size: 11px; font-weight: 700; opacity: 0.6; display:block; margin-bottom: 5px; letter-spacing: 0.5px;">CONTRACTOR NAME</span>
+            <input type="text" id="user-profile-name" class="clay-input" placeholder="Enter Your Name..." oninput="updateUserProfileName(this.value)">
+        </div>
+
+        <!-- View Tab Selectors Switcher -->
+        <div class="nav-tabs">
+            <button class="clay-btn active" id="tab-current" onclick="switchTab('current')">Current Week</button>
+            <button class="clay-btn" id="tab-history" onclick="switchTab('history')">History Logs</button>
+        </div>
+
+        <!-- VIEW 1: ACTIVE ATTENDANCE SHEETS LOG PANEL -->
+        <div id="view-current" class="view-section">
+            <!-- Add Labour Card Form Component -->
+            <div class="clay-card" style="margin-bottom: 20px;">
+                <h2>Add New Labour</h2>
+                <div class="form-group">
+                    <input type="text" id="labour-name-input" class="clay-input" placeholder="Enter Labour Full Name..." autocomplete="off">
+                    <button class="clay-btn primary" onclick="addLabour()">Add</button>
+                </div>
+            </div>
+
+            <!-- Global Activity Status Dashboard Actions Bar -->
+            <div class="clay-card" style="margin-bottom: 20px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <span style="font-size: 12px; font-weight: 600; opacity: 0.6;">Tap circle: . → 1 → 0 → -</span>
+                <button class="clay-btn success" onclick="triggerCloseWeekModal()">End Week & Archive</button>
+            </div>
+
+            <!-- Active Workers Destination Hook Node -->
+            <div class="labour-list" id="active-labour-list"></div>
+        </div>
+
+        <!-- VIEW 2: HISTORICAL DATABASE LOGS MATRIX SHEET -->
+        <div id="view-history" class="view-section hidden">
+            <div class="clay-card">
+                <h2>Archived Weeks <button class="clay-btn danger" style="padding: 4px 10px; font-size: 11px;" onclick="triggerClearAllHistoryModal()">Clear All</button></h2>
+                <div id="history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REUSABLE INTEGRATED UNIFIED CUSTOM POPUP MODAL SCREEN WIDGET -->
+    <div id="custom-popup-modal" class="modal-overlay hidden">
+        <div class="clay-card modal-content">
+            <h2 id="modal-title" style="justify-content: center; color: var(--color-primary); font-size: 19px; margin-bottom: 10px;">Notification</h2>
+            <p id="modal-message" style="font-size: 14px; line-height: 1.5; opacity: 0.8; margin-bottom: 5px;"></p>
+            <div class="modal-buttons" id="modal-buttons-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // System Master Storage Schema Mapping Variable Engine State Layout
+        let appState = {
+            userName: "",
+            labours: [],      
+            currentWeek: {},  
+            history: [],       
+            weekStartDate: "" 
+        };
+
+        const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const STATUS_CYCLE = ['.', '1', '0', '-'];
+
+        // Runtime Boot Initializer Lifecycle Hook
+        function initApp() {
+            const savedState = localStorage.getItem('labour_attendance_state_v4');
+            if (savedState) {
+                appState = JSON.parse(savedState);
+            } else {
+                appState.weekStartDate = new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+                saveToLocalStorage();
+            }
+            document.getElementById('user-profile-name').value = appState.userName || '';
+            renderCurrentWeekBanner();
+            renderActiveWeek();
+            renderHistory();
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('labour_attendance_state_v4', JSON.stringify(appState));
+        }
+
+        function updateUserProfileName(val) {
+            appState.userName = val;
+            saveToLocalStorage();
+        }
+
+        function renderCurrentWeekBanner() {
+            document.getElementById('current-week-banner').innerText = `Active Cycle Began: ${appState.weekStartDate}`;
+        }
+
+        // UNIFIED APP MODAL INTERCEPTOR SYSTEM HOOKS (Replaces standard browser pop-ups)
+        function showPopup(title, message, isConfirm, confirmCallback) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            
+            const btnContainer = document.getElementById('modal-buttons-container');
+            btnContainer.innerHTML = '';
+
+            if (isConfirm) {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'clay-btn';
+                cancelBtn.innerText = 'Cancel';
+                cancelBtn.onclick = hidePopup;
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'clay-btn primary';
+                confirmBtn.innerText = 'Confirm';
+                confirmBtn.onclick = () => {
+                    confirmCallback();
+                    hidePopup();
+                };
+
+                btnContainer.appendChild(cancelBtn);
+                btnContainer.appendChild(confirmBtn);
+            } else {
+                const okBtn = document.createElement('button');
+                okBtn.className = 'clay-btn primary';
+                okBtn.innerText = 'OK';
+                okBtn.onclick = hidePopup;
+                btnContainer.appendChild(okBtn);
+            }
+
+            document.getElementById('custom-popup-modal').classList.remove('hidden');
+        }
+
+        function hidePopup() {
+            document.getElementById('custom-popup-modal').classList.add('hidden');
+        }
+
+        // Navigation Tabs Workspace Director Layout Management Switcher
+        function switchTab(tab) {
+            if (tab === 'current') {
+                document.getElementById('tab-current').classList.add('active');
+                document.getElementById('tab-history').classList.remove('active');
+                document.getElementById('view-current').classList.remove('hidden');
+                document.getElementById('view-history').classList.add('hidden');
+                renderActiveWeek();
+            } else {
+                document.getElementById('tab-current').classList.remove('active');
+                document.getElementById('tab-history').classList.add('active');
+                document.getElementById('view-current').classList.add('hidden');
+                document.getElementById('view-history').classList.remove('hidden');
+                renderHistory();
+            }
+        }
+
+        // Add Active Worker Operations Workflow Engine Log Matrix Module
+        function addLabour() {
+            const nameInput = document.getElementById('labour-name-input');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                showPopup("Missing Name", "Please type a valid labour name before tapping the add button entry path.", false);
+                return;
+            }
+
+            const labourId = 'labour_' + Date.now();
+            appState.labours.push({ id: labourId, name: name });
+            appState.currentWeek[labourId] = {
+                attendance: ['.', '.', '.', '.', '.', '.', '.'],
+                advance: 0
+            };
+
+            nameInput.value = '';
+            saveToLocalStorage();
+            renderActiveWeek();
+        }
+
+        // Trigger Remove Worker Alert Custom Modal Workflow Frame Hook 
+        function triggerDeleteLabour(id, name) {
+            showPopup(
+                "Remove Profile?", 
+                `Are you sure you want to remove "${name}" from this active weekly sheet?`, 
+                true, 
+                () => {
+                    appState.labours = appState.labours.filter(l => l.id !== id);
+                    delete appState.currentWeek[id];
+                    saveToLocalStorage();
+                    renderActiveWeek();
+                }
+            );
+        }
+
+        // Grid Button Status State Incrementing Cycle Router Logic
+        function cycleStatus(labourId, dayIndex) {
+            let currentStatus = appState.currentWeek[labourId].attendance[dayIndex];
+            let nextIndex = (STATUS_CYCLE.indexOf(currentStatus) + 1) % STATUS_CYCLE.length;
+            let nextStatus = STATUS_CYCLE[nextIndex];
+            
+            appState.currentWeek[labourId].attendance[dayIndex] = nextStatus;
+            saveToLocalStorage();
+            
+            const btn = document.getElementById(`btn-${labourId}-${dayIndex}`);
+            btn.setAttribute('data-status', nextStatus);
+            btn.innerText = nextStatus;
+        }
+
+        function updateAdvance(labourId, value) {
+            const numValue = parseFloat(value) || 0;
+            appState.currentWeek[labourId].advance = numValue;
+            saveToLocalStorage();
+        }
+
+        // Active Workspace Card Grid Drawing Constructor Logic Flow
+        function renderActiveWeek() {
+            const container = document.getElementById('active-labour-list');
+            container.innerHTML = '';
+
+            if (appState.labours.length === 0) {
+                container.innerHTML = `<div class="clay-card empty-state">No workers registered. Add worker profiles using the panel form layout module above.</div>`;
+                return;
+            }
+
+            appState.labours.forEach(worker => {
+                const record = appState.currentWeek[worker.id] || { attendance: ['.','.','.','.','.','.','.'], advance: 0 };
+                const card = document.createElement('div');
+                card.className = 'clay-card labour-card';
+                
+                let dayButtonsHTML = '';
+                DAYS.forEach((day, index) => {
+                    const status = record.attendance[index] || '.';
+                    dayButtonsHTML += `
+                        <div class="day-col">
+                            <span class="day-label">${day}</span>
+                            <button id="btn-${worker.id}-${index}" class="status-btn" data-status="${status}" onclick="cycleStatus('${worker.id}', ${index})">${status}</button>
+                        </div>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="labour-header">
+                        <span>${worker.name}</span>
+                        <button class="clay-btn danger" style="padding: 4px 8px; font-size: 12px; border-radius: 8px;" onclick="triggerDeleteLabour('${worker.id}', '${worker.name.replace(/'/g, "\\'")}')">Remove</button>
+                    </div>
+                    <div class="week-grid">
+                        ${dayButtonsHTML}
+                    </div>
+                    <div class="card-footer-metrics">
+                        <div class="advance-box">
+                            <span>Adv (₹):</span>
+                            <input type="number" class="clay-input" value="${record.advance || ''}" placeholder="₹ 0" oninput="updateAdvance('${worker.id}', this.value)">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // End Week Action Sheet Interception Validation Custom Alert Dialog
+        function triggerCloseWeekModal() {
+            if (appState.labours.length === 0) {
+                showPopup("Action Denied", "Cannot finalize or archive an empty log workbook layout template.", false);
+                return;
+            }
+            
+            showPopup(
+                "Finalize Sheet Cycle?",
+                "This moves the active records into History logs and creates a blank tracking calendar grid for the next week.",
+                true,
+                confirmCloseCurrentWeek
+            );
+        }
+
+        function confirmCloseCurrentWeek() {
+            const endDateStr = new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+            
+            const archiveRecord = {
+                id: 'hist_' + Date.now(),
+                dateRange: `${appState.weekStartDate} - ${endDateStr}`,
+                userName: appState.userName.trim() || 'Not Provided',
+                rows: []
+            };
+
+            appState.labours.forEach(worker => {
+                const data = appState.currentWeek[worker.id];
+                archiveRecord.rows.push({
+                    name: worker.name,
+                    attendance: [...data.attendance],
+                    advance: data.advance
+                });
+                
+                data.attendance = ['.', '.', '.', '.', '.', '.', '.'];
+                data.advance = 0;
+            });
+
+            appState.history.unshift(archiveRecord);
+            appState.weekStartDate = new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+            
+            saveToLocalStorage();
+            renderCurrentWeekBanner();
+            switchTab('history');
+        }
+
+        // Archive List Data Parser Constructor Interface
+        function renderHistory() {
+            const container = document.getElementById('history-list');
+            container.innerHTML = '';
+
+            if (appState.history.length === 0) {
+                container.innerHTML = `<div class="empty-state">No archived cycles logged inside storage history profiles registry.</div>`;
+                return;
+            }
+
+            appState.history.forEach((archive, archIdx) => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                
+                let tableRows = '';
+                archive.rows.forEach(row => {
+                    let cells = '';
+                    row.attendance.forEach(att => {
+                        let cls = '';
+                        if(att === '1') cls = 'status-1';
+                        if(att === '0') cls = 'status-0';
+                        if(att === '-') cls = 'status-half';
+                        cells += `<td class="${cls}">${att}</td>`;
+                    });
+                    
+                    tableRows += `
+                        <tr>
+                            <td style="text-align: left; font-weight:600;">${row.name}</td>
+                            ${cells}
+                            <td style="font-weight:600; color:#2c3e50;">₹${row.advance}</td>
+                        </tr>
+                    `;
+                });
+
+                item.innerHTML = `
+                    <div class="history-header">
+                        <div style="display:flex; flex-direction:column; gap:2px; text-align:left;">
+                            <span style="font-size:13px; font-weight:700; color:var(--color-primary);">🗓️ ${archive.dateRange}</span>
+                            <span style="font-size:11px; opacity:0.6;">By: ${archive.userName}</span>
+                        </div>
+                        <button class="clay-btn primary" style="padding: 6px 12px; font-size: 11px; border-radius: 10px;" onclick="exportWeeklyPDF(${archIdx})">Get PDF</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Name</th>
+                                    <th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th>
+                                    <th>Adv</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                    <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.05); margin-top:15px;">
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Global Storage Deletion Modal Confirmation Interceptor Trigger Hook
+        function triggerClearAllHistoryModal() {
+            showPopup(
+                "Erase All Records?",
+                "CRITICAL WARNING: This permanently wipes out all archived history datasets stored on this device memory layer.",
+                true,
+                () => {
+                    appState.history = [];
+                    saveToLocalStorage();
+                    renderHistory();
+                }
+            );
+        }
+
+        // FIXED HIGH-FIDELITY PDF EXPORT ROUTINE (Passes direct HTML text strings to avoid empty canvas rendering bugs)
+        function exportWeeklyPDF(index) {
+            const data = appState.history[index];
+            if (!data) return;
+
+            let htmlRows = '';
+            data.rows.forEach(r => {
+                let dayCells = '';
+                r.attendance.forEach(status => {
+                    let txtColor = '#a0aec0';
+                    if (status === '1') txtColor = '#2ecc71';
+                    if (status === '0') txtColor = '#e74c3c';
+                    if (status === '-') txtColor = '#2c3e50';
+                    dayCells += `<td style="padding: 12px 6px; border: 1px solid #cbd5e0; text-align: center; color: ${txtColor}; font-weight: bold; font-size: 14px;">${status}</td>`;
+                });
+
+                htmlRows += `
+                    <tr>
+                        <td style="padding: 12px 10px; border: 1px solid #cbd5e0; text-align: left; font-weight: bold; color: #2d3748; font-size: 14px;">${r.name}</td>
+                        ${dayCells}
+                        <td style="padding: 12px 10px; border: 1px solid #cbd5e0; text-align: right; font-weight: bold; color: #1a202c; font-size: 14px;">₹${r.advance || 0}</td>
+                    </tr>
+                `;
+            });
+
+            // Standalone inline text template compiled natively inside isolated context
+            const pdfTemplateMarkupString = `
+                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 35px; background: #ffffff; color: #2d3748; box-sizing: border-box;">
+                    <div style="border-bottom: 3px solid #6c5ce7; padding-bottom: 18px; margin-bottom: 25px;">
+                        <h1 style="font-size: 26px; margin: 0 0 8px 0; color: #1a202c; font-weight: bold;">Labour Attendance Statement Report</h1>
+                        <p style="margin: 4px 0; font-size: 14px; color: #4a5568;"><strong>Contractor Name:</strong> ${data.userName}</p>
+                        <p style="margin: 4px 0; font-size: 14px; color: #4a5568;"><strong>Statement Date Range Cycle Period:</strong> ${data.dateRange}</p>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                        <thead>
+                            <tr style="background: #f7fafc;">
+                                <th style="padding: 12px 10px; border: 1px solid #cbd5e0; text-align: left; font-weight: bold; color: #4a5568; font-size: 13px;">Labour Name</th>
+                                <th style="border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; font-size: 13px; font-weight: bold;">Mon</th>
+                                <th style="border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; font-size: 13px; font-weight: bold;">Tue</th>
+                                <th style="border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; font-size: 13px; font-weight: bold;">Wed</th>
+                                <th style="border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; font-size: 13px; font-weight: bold;">Thu</th>
+                                <th style="border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; font-size: 13px; font-weight: bold;">Fri</th>
+                                <th style="border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; font-size: 13px; font-weight: bold;">Sat</th>
+                                <th style="border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; font-size: 13px; font-weight: bold;">Sun</th>
+                                <th style="padding: 12px 10px; border: 1px solid #cbd5e0; text-align: right; font-weight: bold; color: #4a5568; font-size: 13px;">Advance Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${htmlRows}
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 45px; text-align: right; font-size: 11px; color: #a0aec0; border-top: 1px solid #edf2f7; padding-top: 12px;">
+                        Report generated dynamically via Labour Attendance Pro Internal System Device Ledger.
+                    </div>
+                </div>
+            `;
+
+            const options = {
+                margin:       12,
+                filename:     `Weekly_Report_${data.dateRange.replace(/ /g, "_")}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2.2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+
+            // Running directly from source template text string bypasses DOM hidden sizing parsing locks entirely
+            html2pdf().set(options).from(pdfTemplateMarkupString).save();
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
